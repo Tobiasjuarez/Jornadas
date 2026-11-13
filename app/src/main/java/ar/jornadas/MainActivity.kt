@@ -8,17 +8,19 @@ import ar.jornadas.ui.*
 
 class MainActivity : ComponentActivity() {
     private val model: ProgramaModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null && intent.hasExtra("servicio_disponible")) {
-            model.mesa.disponible = intent.getBooleanExtra("servicio_disponible", true)
-            intent.removeExtra("servicio_disponible")
+        // Extra de prueba: se aplica antes de crear el ViewModel, que dispara la carga automática.
+        if (savedInstanceState == null && intent.hasExtra(EXTRA_SERVICIO)) {
+            Servicios.de(applicationContext).mesa.disponible = intent.getBooleanExtra(EXTRA_SERVICIO, true)
+            intent.removeExtra(EXTRA_SERVICIO)
         }
+        // Sin recarga en onStart: la carga automática es una por proceso (ver Sincronizador).
         setContent { Portada(model) }
     }
 
-    override fun onStart() {
-        super.onStart()
-        model.recargar()
+    private companion object {
+        const val EXTRA_SERVICIO = "servicio_disponible"
     }
 }
