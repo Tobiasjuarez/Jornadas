@@ -6,29 +6,58 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ar.jornadas.data.Charla
 
+private val DIAS = listOf("Ambos días", "Día 1", "Día 2")
+private val TEMAS = listOf(ProgramaModel.TODOS, "Android", "Datos", "Calidad")
+
 @Composable
 fun Catalogo(model: ProgramaModel, abrir: (String) -> Unit) {
-    LaunchedEffect(Unit) { model.recargar() }
     val dia by model.dia.collectAsStateWithLifecycle()
-    var tema by remember { mutableStateOf("Todos") }
+    val tema by model.tema.collectAsStateWithLifecycle()
     val fichas by model.charlas.collectAsStateWithLifecycle()
-    val aviso by model.aviso.collectAsStateWithLifecycle()
+    val hayEdicion by model.hayEdicion.collectAsStateWithLifecycle()
     val cargando by model.cargando.collectAsStateWithLifecycle()
-    Selector(listOf("Ambos días", "Día 1", "Día 2"), dia) { model.dia.value = it }
-    val temas = listOf("Todos", "Android", "Datos", "Calidad")
-    Selector(temas, temas.indexOf(tema)) { tema = temas[it] }
-    TextButton(onClick = model::recargar) { Text("Actualizar") }
+    val fallo by model.fallo.collectAsStateWithLifecycle()
+
+    Selector(DIAS, dia, model::elegirDia)
+    Selector(TEMAS, TEMAS.indexOf(tema).coerceAtLeast(0)) { model.elegirTema(TEMAS[it]) }
+    TextButton(onClick = model::actualizar) { Text("Actualizar") }
     if (cargando) LinearProgressIndicator(Modifier.fillMaxWidth())
-    if (aviso.isNotEmpty()) {
-        Text(aviso)
-        OutlinedButton(onClick = model::recargar) { Text("Reintentar") }
-    } else {
-        Grilla(fichas.filter { (dia == 0 || it.dia == dia) && (tema == "Todos" || it.tema == tema) }, abrir)
+
+    val lista = fichas
+    when (hayEdicion) {
+        null -> Unit // todavía se está leyendo la base local
+        false -> when {
+            cargando -> Text("Descargando el programa…")
+            else -> {
+                Text(if (fallo) "No se pudo descargar el programa." else "Todavía no hay un programa descargado.")
+                OutlinedButton(onClick = model::actualizar) { Text("Reintentar") }
+            }
+        }
+        true -> {
+            val filtradas = lista.orEmpty()
+                .filter { (dia == 0 || it.dia == dia) && (tema == ProgramaModel.TODOS || it.tema == tema) }
+            when {
+                lista == null -> Unit
+                lista.isEmpty() -> Text("Sin charlas programadas.")
+                filtradas.isEmpty() -> Text("No hay charlas con estos filtros.")
+                else -> Grilla(filtradas, abrir)
+            }
+        }
+    }
+}
+
+/** Aviso de que se muestran datos guardados porque la última descarga falló. */
+@Composable
+fun AvisoDatosGuardados(reintentar: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Sin conexión: se están usando datos guardados.", Modifier.weight(1f))
+        OutlinedButton(onClick = reintentar) { Text("Reintentar") }
     }
 }
 

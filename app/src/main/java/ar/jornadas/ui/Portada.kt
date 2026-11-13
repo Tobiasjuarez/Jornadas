@@ -17,6 +17,8 @@ fun Portada(model: ProgramaModel) {
     var seccion by rememberSaveable { mutableStateOf("Programa") }
     var detalle by rememberSaveable { mutableStateOf<String?>(null) }
     val charlas by model.charlas.collectAsStateWithLifecycle()
+    val hayEdicion by model.hayEdicion.collectAsStateWithLifecycle()
+    val fallo by model.fallo.collectAsStateWithLifecycle()
     BackHandler(detalle != null || seccion != "Programa") {
         if (detalle != null) detalle = null else seccion = "Programa"
     }
@@ -33,10 +35,15 @@ fun Portada(model: ProgramaModel) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Spacer(Modifier.height(8.dp))
                 Text("Jornadas del Sur", style = MaterialTheme.typography.labelLarge)
+                // Con una edición guardada, una falla no oculta nada: lista, detalle y favoritas siguen.
+                if (fallo && hayEdicion == true) AvisoDatosGuardados(model::actualizar)
+                val lista = charlas
                 if (detalle != null) {
                     TextButton(onClick = { detalle = null }) { Text("Volver") }
-                    val ficha = charlas.find { it.id == detalle }
-                    if (ficha != null) Column(Modifier.verticalScroll(rememberScrollState()),
+                    val ficha = lista?.find { it.id == detalle }
+                    if (lista == null) Text("Cargando…")
+                    else if (ficha == null) Text("Esta charla ya no forma parte del programa.")
+                    else Column(Modifier.verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(ficha.titulo, style = MaterialTheme.typography.headlineMedium)
                         Text("Día ${ficha.dia} · ${ficha.hora} · ${ficha.sala}")
@@ -51,9 +58,9 @@ fun Portada(model: ProgramaModel) {
                     when (seccion) {
                         "Programa" -> Catalogo(model) { detalle = it }
                         "Mi agenda" -> {
-                            val guardadas = charlas.filter { it.favorita }
+                            val guardadas = lista.orEmpty().filter { it.favorita }
                             if (guardadas.isEmpty()) Text("Todavía no agregaste charlas.")
-                            Grilla(guardadas) { detalle = it }
+                            else Grilla(guardadas) { detalle = it }
                         }
                         else -> Mesa(model.mesa)
                     }
